@@ -18,7 +18,7 @@
   - 技能基础数值(CometSkill)来自真实来源：poewiki 当前版本(0.3.0+)宝石成长表，20 级基础冰冷 829~1243。
   - 演示 BD 为「有据可查的参考 BD」：more 乘区与穿透取自真实辅助宝石数值，其余 inc/flat/暴击为典型终局冰法量级。
   - 保留 demo()：仅 `python comet_model.py` 时运行；TooltipRef 默认留空，请填入你的游戏内 tooltip 做真实校验。
-  - 模型全部计算公式与 pytest(12 项) 保持自洽；本版修正「施法时间假设」与「敏感性标签」，不改动伤害流水线。
+  - 模型全部计算公式与 pytest(15 项用例) 保持自洽；本版修正「施法时间假设」与「敏感性标签」，不改动伤害流水线。
 
 数据来源（详见仓库 02-comet-damage-model/DATA_SOURCES.md）：
   - 技能基础：https://poe2wiki.net/wiki/Comet （2026-10-22 抓取，版本 0.3.0+）
