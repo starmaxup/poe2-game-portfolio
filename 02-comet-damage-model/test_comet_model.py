@@ -202,3 +202,45 @@ def test_AB2_tooltip_self_consistent(base_model):
     m.tip = tip
     ok, rep = m.verify()
     assert ok, f"A/B2 Tooltip 自洽应 PASS, rep={rep}"
+
+
+# ---------------- T8: sensitivity 必须继承 cast_time_mode（修复 m2 漏传口径回归） ----------------
+def test_T8_sensitivity_respects_mode(base_model):
+    # 默认 pipelined(真流水线=anim)：施速直接影响 DPS，cast_speed_pct 敏感性应明显 > 0
+    m_pipe = copy.deepcopy(base_model)
+    rows_pipe = {r[0]: r for r in m_pipe.sensitivity()}
+    cs_pipe = rows_pipe['cast_speed_pct']
+    assert cs_pipe[5] > 1.0, f"pipelined 下施速应影响 DPS，敏感性却={cs_pipe[5]}"
+
+    # serial_complete(anim+fall)：施速也影响 DPS，敏感性应 > 0
+    m_ser = CometModel(base_model.s, base_model.b, base_model.t, base_model.tip,
+                       cast_time_mode='serial_complete')
+    rows_ser = {r[0]: r for r in m_ser.sensitivity()}
+    cs_ser = rows_ser['cast_speed_pct']
+    assert cs_ser[5] > 1.0, f"serial_complete 下施速应影响 DPS，敏感性却={cs_ser[5]}"
+
+    # 关键回归：若 sensitivity 内部 m2 漏传 mode，则 serial_complete 基准会被误算成 pipelined，
+    # 导致 serial 下的 cast_speed 敏感性被错误压成 0 或与 pipelined 一致。此处断言二者确实不同。
+    assert cs_ser[3] != pytest.approx(cs_pipe[3], rel=0.1), \
+        f"serial_complete 与 pipelined 的 cast_speed 敏感性应不同（口径已正确继承）: " \
+        f"ser={cs_ser[3]}, pipe={cs_pipe[3]}"
+
+
+# ---------------- T9: 三口径时间/DPS 排序 与 pipelined=anim 施速敏感性 ----------------
+def test_T9_three_cast_modes(base_model):
+    m = copy.deepcopy(base_model)
+    t_sc = m.total_cast_time('serial_complete')
+    t_ss = m.total_cast_time('serial_start')
+    t_pl = m.total_cast_time('pipelined')
+    # 时间关系：serial_complete >= serial_start >= pipelined
+    assert t_sc >= t_ss >= t_pl, f"时间排序应为 sc>=ss>=pl: {t_sc},{t_ss},{t_pl}"
+    dmg = m.avg_damage_per_cast()
+    d_sc, d_ss, d_pl = dmg / t_sc, dmg / t_ss, dmg / t_pl
+    # DPS 反序：serial_complete <= serial_start <= pipelined
+    assert d_sc <= d_ss <= d_pl, f"DPS 排序应为 sc<=ss<=pl: {d_sc},{d_ss},{d_pl}"
+    # pipelined=anim：施速变化应改变 DPS（区别于 serial_start 的“落点延迟瓶颈”行为）
+    m2 = copy.deepcopy(base_model)
+    m2.b.cast_speed_pct = base_model.b.cast_speed_pct + 1.0
+    ratio = (m.avg_damage_per_cast() / m.total_cast_time('pipelined')) / \
+            (m2.avg_damage_per_cast() / m2.total_cast_time('pipelined'))
+    assert ratio != pytest.approx(1.0), f"pipelined 下施速应改变 DPS，ratio={ratio}"
